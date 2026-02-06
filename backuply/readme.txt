@@ -2,9 +2,9 @@
 Contributors: softaculous, backuply
 Tags: backup, restore, database backup, cloud backup, wordpress backup, migration, cloning, backuply, local backup, amazon s3, database, google drive, gdrive, dropbox, FTP, SCP, SFTP, onedrive, WebDAV
 Requires at least: 4.7
-Tested up to: 6.8
+Tested up to: 6.9
 Requires PHP: 5.5
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -84,6 +84,11 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.5.1 (14th November 2025) =
+* [Bug-Fix] Backups could get stuck when certain special characters were present in file names.
+* [Bug-Fix] An issue with uploading backups to Backuply Cloud and AWS has been resolved.
+* [Bug-Fix] On some servers, the status logs stopped updating during backups because the server flagged the update requests as a loop. This issue has been addressed.
 
 = 1.5.0 (30th September 2025) =
 * [Bug-Fix Pro] Custom cron key was getting updated on every update which was breaking Auto Backups for the users who were using Custom cron, this has been fixed.

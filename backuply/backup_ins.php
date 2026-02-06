@@ -1273,7 +1273,7 @@ function backuply_update_status(){
 	}
 
 	$backuply['status']['name'] = $data['name'];
-	$backuply['status']['last_file'] = !empty($GLOBALS['end_file']) ? $GLOBALS['end_file'] : '';
+	$backuply['status']['last_file'] = !empty($GLOBALS['end_file']) ? base64_encode($GLOBALS['end_file']) : '';
 	$backuply['status']['added_file_count'] = !empty($GLOBALS['added_file_count']) ? $GLOBALS['added_file_count'] : 0;
 	$backuply['status']['backup_db'] = $data['backup_db'];
 	$backuply['status']['backup_dir'] = $data['backup_dir'];
@@ -1627,6 +1627,17 @@ function backuply_remote_upload($finished = false){
 	backuply_status_log('Upload Start Position (L'.$backuply['status']['loop'].') : '.$backuply['status']['init_pos']);
 	
 	$backuply['status']['chunk'] = 262144; // 2MB
+	
+	// For storages who use bcloud lib, like aws, caws, and bcloud the chunk size need to be 5MB
+	// NOTE: If you plan to increase this size, make sure to increase it in the bcloud.php chunksize as well
+	if(
+		strpos($backuply['status']['remote_file_path'], 'bcloud') === 0 || 
+		strpos($backuply['status']['remote_file_path'], 'aws') === 0 || 
+		strpos($backuply['status']['remote_file_path'], 'caws') === 0
+	){
+		$backuply['status']['chunk'] = 5242880; // 5MB
+	}
+
 	$file_size = filesize($backuply['status']['successfile']);
 	$chunks = ceil($file_size / $backuply['status']['chunk']);
 	$chunk_no = isset($backuply['status']['chunk_no']) ? $backuply['status']['chunk_no'] : 1;
@@ -1848,7 +1859,7 @@ $f_list = $pre_soft_list = $post_soft_list = array(); // Files/Folder which has 
 // Empty last file everytime as a precaution
 $GLOBALS['added_file_count'] = !empty($backuply['status']['added_file_count']) ? $backuply['status']['added_file_count'] : '';
 $GLOBALS['last_file'] = '';
-$GLOBALS['last_file'] = !empty($backuply['status']['last_file']) ? $backuply['status']['last_file'] : '';
+$GLOBALS['last_file'] = !empty($backuply['status']['last_file']) ? base64_decode($backuply['status']['last_file']) : '';
 
 if(!empty($GLOBALS['last_file'])){
 	$GLOBALS['last_file'] = rawurldecode($GLOBALS['last_file']);
