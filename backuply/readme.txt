@@ -2,9 +2,9 @@
 Contributors: softaculous, backuply
 Tags: backup, restore, database backup, cloud backup, wordpress backup, migration, cloning, backuply, local backup, amazon s3, database, google drive, gdrive, dropbox, FTP, SCP, SFTP, onedrive, WebDAV
 Requires at least: 4.7
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 5.5
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -84,6 +84,12 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.5.3 (27th May 2026) =
+* [Improvement] Added option to use custom Backup rotation.
+* [Bug-Fix Pro] When AWS and AWS compatible locations were edited they were changing the base backup path, this has been fixed.
+* [Bug-Fix] There was an issue when activating of the Backuply plugin on Multi Site, this has been fixed.
+* [Task] Tested with WordPress 7.0.
 
 = 1.5.2 (26th February 2026) =
 * [Improvement] Backup history is now sorted based on time, with recent backups at the top.

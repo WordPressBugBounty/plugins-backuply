@@ -85,8 +85,8 @@ a .dashicons {
     height: 16px;
     width: 16px;
     position: absolute;
-	left: -13px;
-	top: -2px;
+	left: -10px;
+	top: 2px;
     -webkit-animation: backuply-pulsate 1.2s ease-out;
     -webkit-animation-iteration-count: infinite; 
     opacity: 0.0

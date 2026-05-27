@@ -1818,6 +1818,10 @@ function backuply_schedule_quota_updation($location){
 function backuply_delete_tmp(){
 
 	$backup_folder = backuply_glob('backups');
+	
+	if(empty($backup_folder)){
+		return;
+	}
 
 	// Deleting files with dot(.) at start
 	$files = glob($backup_folder .'/.*.tar.gz');

@@ -44,8 +44,17 @@ jQuery(document).ready(function(){
 	});
 	
 	backuply_cron_backup_style(backuply_obj.cron_task);
+	
+	jQuery('#backup_rotation').on('change', function(){
+		backuply_toggle_custom_rotation();
+	});
+	
+	jQuery('#backup_rotation_custom').on('input', function(){
+		backuply_rotation_warning_check();
+	});
 
 	jQuery("#check_all_edit").on("click", function(event){
+
 		if(this.checked == true){
 			jQuery('[name="add_to_fileindex[]"]').prop("checked", true);
 		}else{
@@ -1367,10 +1376,36 @@ function backuply_cron_backup_style(select_value){
 	if(!select_value) {
 		jQuery("#backuply_cron_checkbox").hide();
 		jQuery('#backup_rotation').prop('disabled', true);
+		jQuery('#backup_rotation_custom').hide();
+		jQuery('#backup_rotation_warning').hide();
 	}
 	
 	if(select_value == 'custom') {
 		jQuery('#backuply-custom-cron').show();
+	}
+	
+	if(select_value) {
+		backuply_toggle_custom_rotation();
+	}
+}
+
+function backuply_toggle_custom_rotation(){
+	var rotVal = jQuery('#backup_rotation').val();
+	if(rotVal === 'custom'){
+		jQuery('#backup_rotation_custom').show();
+		backuply_rotation_warning_check();
+	} else {
+		jQuery('#backup_rotation_custom').hide();
+		jQuery('#backup_rotation_warning').hide();
+	}
+}
+
+function backuply_rotation_warning_check(){
+	var val = parseInt(jQuery('#backup_rotation_custom').val());
+	if(!isNaN(val) && val > 30){
+		jQuery('#backup_rotation_warning').show();
+	} else {
+		jQuery('#backup_rotation_warning').hide();
 	}
 }
 

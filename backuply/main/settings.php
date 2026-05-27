@@ -282,6 +282,10 @@ function backuply_page_backup(){
 				$cron_settings['backup_dir'] = isset($_POST['auto_backup_dir']) ? 1 : 0;
 				$cron_settings['backup_db'] = isset($_POST['auto_backup_db']) ? 1 : 0;
 				$cron_settings['backup_rotation'] = backuply_optpost('backup_rotation');
+				if($cron_settings['backup_rotation'] === 'custom'){
+					$custom_val = (int) backuply_optpost('backup_rotation_custom');
+					$cron_settings['backup_rotation'] = (!empty($custom_val) && $custom_val > 0) ? $custom_val : '';
+				}
 				$cron_settings['backup_location'] = backuply_optpost('backup_location');
 
 				if($_POST['backuply_cron_schedule'] == 'custom') {
@@ -429,6 +433,7 @@ function backuply_page_backup(){
 				}
 
 			}elseif($protocol == 'aws' || $protocol == 'caws'){
+				$aws = backuply_load_remote_backup($protocol);
 				$endpoint = $backuply_remote_backup_locs[$edit_loc_id]['aws_endpoint'];
 				$region = $backuply_remote_backup_locs[$edit_loc_id]['aws_region'];
 				$bucketName = $backuply_remote_backup_locs[$edit_loc_id]['aws_bucketname'];
@@ -1592,22 +1597,35 @@ if(file_exists(BACKUPLY_BACKUP_DIR . 'restoration/restoration.php')){
 							<label class="backuply-opt-label" for="backup_rotation">
 								<span class="backuply-opt-label__title"><?php esc_html_e('Backup Rotation', 'backuply'); ?></span>
 							</label>
-							<select id="backup_rotation" name="backup_rotation" disabled >
-								<option value=""><?php esc_html_e('Unlimited', 'backuply'); ?></option>
-								<?php for($i = 1; $i <= 10; $i++) {
-									
-									$selected = '';
-									
-									if(isset($cron_task['backup_rotation']) && $cron_task['backup_rotation'] == $i) {
-										$selected = 'selected';
-									}
+							<div style="display:flex; gap:3px">
+								<select id="backup_rotation" name="backup_rotation" disabled style="width:100%">
+									<option value=""><?php esc_html_e('Unlimited', 'backuply'); ?></option>
+									<?php for($i = 1; $i <= 10; $i++) {
+										
+										$selected = '';
+										
+										if(isset($cron_task['backup_rotation']) && $cron_task['backup_rotation'] == $i) {
+											$selected = 'selected';
+										}
 
+										?>
+									<option value="<?php echo esc_attr($i);?>" <?php echo esc_attr($selected);?>><?php echo esc_attr($i);?></option>
+									<?php } ?>
+									<?php
+									$custom_selected = '';
+									$custom_val = '';
+									if(!empty($cron_task['backup_rotation']) && $cron_task['backup_rotation'] > 10){
+										$custom_selected = 'selected';
+										$custom_val = $cron_task['backup_rotation'];
+									}
 									?>
-								<option value="<?php echo esc_attr($i);?>" <?php echo esc_attr($selected);?>><?php echo esc_attr($i);?></option>
-								<?php } ?>
-							</select>
+									<option value="custom" <?php echo esc_attr($custom_selected); ?>><?php esc_html_e('Custom', 'backuply'); ?></option>
+								</select>
+								<input type="number" id="backup_rotation_custom" name="backup_rotation_custom" min="1" value="<?php echo esc_attr($custom_val); ?>" style="display:none; width:80px;" placeholder="<?php esc_attr_e('Count', 'backuply'); ?>"/>
+							</div>
+							<span id="backup_rotation_warning" style="display:none; color:#d63638; font-size:12px; margin-left:8px;"><?php esc_html_e('Keeping more than 30 backups may consume significant disk space.', 'backuply'); ?></span>
 						</div>
-	
+
 						<div class="backuply-option-wrap" id="backuply_cron_checkbox">
 							<div class="backuply-opt-label">
 								<span class="backuply-opt-label__title"><?php esc_html_e('Backup options', 'backuply'); ?></span>
