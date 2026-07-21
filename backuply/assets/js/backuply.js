@@ -9,6 +9,64 @@ jQuery(document).ready(function(){
 	
 	backuply_handle_tab();
 	
+	// Backup request diagnosis to see if we are being blocked.
+	jQuery('.backuply-diagnosis-status').on('click', function(){
+		var $result = jQuery('.backuply-diagnosis-result');
+		var $button = jQuery(this);
+
+		$button.prop('disabled', true);
+		$result.text('Checking...').show().css({
+			'background-color': '#d4edda',
+			'border-color': '#c3e6cb',
+			'color': '#155724'
+		});
+
+		jQuery.ajax({
+			url: backuply_obj.ajax_url,
+			method: 'POST',
+			data: {
+				action: 'backuply_do_diagnosis',
+				check_key: 'cf_key',
+				security: backuply_obj.nonce,
+			},
+			success: function(response) {
+				$button.prop('disabled', false);
+
+				if(response.success){
+					// Request reached backuply_ins.php - Cloudflare is NOT the issue
+					$result.html(
+						'<p><span style="color:green;">' + response.data.message + '</span></p>'+(response.data.is_cloudflare ? '<p>Cloudflare is enabled on this site</p>' : '')
+						
+					).css({
+						'background-color': '#d4edda',
+						'border-color': '#c3e6cb',
+						'color': '#155724'
+					});
+				} else {
+					// Request FAILED to reach backuply_ins.php
+					var errorData = response.data;
+					var technicalInfo = errorData.technical ? '<br><small>Technical: ' + errorData.technical + '</small>' : '';
+					var suggestion = errorData.suggestion ? '<br><br><strong>How to fix:</strong> ' + errorData.suggestion : '';
+
+					$result.html(
+						'<p><strong style="color:red;">' + errorData.message + '</strong>' + suggestion + '<br><br>' + technicalInfo+'</p>'+(response.data.is_cloudflare ? '<p>Cloudflare is enabled on this site</p>' : '')
+					).css({
+						'background-color': '#f8d7da',
+						'border-color': '#f5c6cb',
+						'color': '#721c24'
+					});
+				}
+			},
+			error: function() {
+				$result.text('Failed to connect to server.').css({
+					'background-color': '#f8d7da',
+					'border-color': '#f5c6cb',
+					'color': '#721c24'
+				});
+			}	
+		});
+	});
+		
 	// To Copy text on click
 	jQuery('.backuply-code-copy').click( function() {
 		navigator.clipboard.writeText(jQuery(this).parent().find('.backuply-code-text').text().trim());
@@ -122,6 +180,41 @@ jQuery(document).ready(function(){
 
 		jQuery('.backuply-modal').show();
 		backuply_backup_progress();
+	});
+	
+	// Debug Log Modal
+	jQuery('.backuply-load-debug').click(function(){
+		jQuery('#backuply-backup-debug-log').dialog({
+			autoOpen: true,
+			draggable: false,
+			height: 600,
+			width: 600,
+			modal: true,
+			title : 'Debug Logs'
+		});
+		
+		let spinner = jQuery('#backuply-backup-debug-log').find('.spinner');
+		let log_block = jQuery('.backuply-debug-log-block');
+		log_block.html('');
+		
+		spinner.addClass('is-active');
+		
+		jQuery.ajax({
+			url: backuply_obj.ajax_url,
+			method : 'POST',
+			data : {
+				'security' : backuply_obj.nonce,
+				'action' : 'backuply_load_debug',
+			},success : function(response){
+				if(!response.success){
+					return;
+				}
+				
+				log_block.html('<pre>'+response.data+'</pre>');
+			}
+		}).always(function(){
+			spinner.removeClass('is-active');
+		})
 	});
 	
 	
@@ -410,27 +503,30 @@ jQuery(document).ready(function(){
 	});
 	
 	jQuery('.backuply-pattern-delete').on('click', backuply_delete_exclude_rule);
-	
-	jQuery('.backuply-js-tree').jstree({
-		'core' : {
-			'multiple' : false,
-			'data' : function(node, cb){
-				jQuery.ajax({
-					method : 'POST',
-					url : backuply_obj.ajax_url,
-					data : {
-						action : 'backuply_get_jstree',
-						security : backuply_obj.nonce,
-						nodeid : node,
-					},
-					success : function(res){
-						cb.call(this, res.nodes);
-					}
-				})
-			},
-			
-		}
-	});
+
+	if(typeof jQuery.fn.jstree !== 'undefined'){
+		jQuery('.backuply-js-tree').jstree({
+			'core' : {
+				'multiple' : false,
+				'data' : function(node, cb){
+					jQuery.ajax({
+						method : 'POST',
+						url : backuply_obj.ajax_url,
+						data : {
+							action : 'backuply_get_jstree',
+							security : backuply_obj.nonce,
+							nodeid : node,
+						},
+						success : function(res){
+							cb.call(this, res.nodes);
+						}
+					})
+				},
+
+			}
+		});
+	}
+
 });
 
 // Handles Dashboard Tabs
@@ -617,6 +713,11 @@ function backuply_stop_backup(jEle) {
 function backuply_create_backup(jEle) {
 	event.preventDefault();
 	
+	if(jEle.is(':disabled')){
+		alert('A backup is already running');
+		return;
+	}
+	
 	var form = jEle.closest('form'),
 		values = form.serializeArray();
 		
@@ -686,7 +787,10 @@ function backuply_progress_init(is_restore = false, title = 'Backup') {
 	});
 	modal.find('.backuply-backup-status').empty();
 	modal.find('.backuply-progress-value').css('width', '0%').text('0%');
+	
 	jQuery('[name="backuply_create_backup"]').addClass('backuply-disabled');
+	jQuery('[name="backuply_create_backup"]').prop('disabled', true);
+	
 	jQuery('[name="backuply_stop_backup"]').prop('disabled', false);
 	
 	if(is_restore) {
@@ -1105,10 +1209,10 @@ function backuply_backup_progress() {
 						status_box.find('.backuply-upload-progress').remove();
 					}
 					status_box.append(log);
-				} else {
-					html += '<p'+ (color ? ' style="color:'+color+'"' : '')+ '>';
-					
-					if(status == 'success') {
+			} else {
+				html += '<p'+ (color ? ' style="color:'+color+'"' : '')+ ' class="backuply-log-'+status+'">';
+				
+				if(status == 'success') {
 						// This is to show a link to rate plugin only if the restore has been success.
 						if(log == 'Restore performed successfully.'){
 							jQuery('#backuply-rate-on-restore').show();

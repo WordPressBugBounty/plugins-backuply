@@ -50,6 +50,8 @@ add_action('wp_ajax_backuply_restore_status_log', 'backuply_restore_status_log')
 add_action('wp_ajax_backuply_close_litespeed_notice', 'backuply_close_litespeed_notice');
 add_action('wp_ajax_backuply_close_update_notice', 'backuply_close_update_notice');
 add_action('wp_ajax_backuply_trial_promo', 'backuply_close_trial_promo');
+add_action('wp_ajax_backuply_do_diagnosis', 'backuply_do_diagnosis');
+add_action('wp_ajax_backuply_load_debug', 'backuply_load_debug');
 
 // Backuply CLoud
 add_action('wp_ajax_bcloud_trial', 'backuply_bcloud_trial');
@@ -136,6 +138,11 @@ function backuply_multi_backup_delete() {
 function backuply_create_backup() {
 	
 	backuply_ajax_nonce_verify();
+	
+	// Check if any backup is already running
+	if(function_exists('backuply_active') && backuply_active()){
+		wp_send_json(array('success' => false, 'message' => __('A backup is already running!', 'backuply')));
+	}
 	
 	$bak_options = json_decode(sanitize_text_field(wp_unslash($_POST['values'])), true);
 
@@ -1056,10 +1063,20 @@ function backuply_update_quota(){
 	$info = get_option('backuply_remote_backup_locs', []);
 	
 	if(!empty($info)){
-		foreach($info as $key => $locs){
-			if($locs['protocol'] === $storage_loc){
+		if(is_numeric($storage_loc)){
+			$key = $storage_loc;
+
+			if(isset($info[$key])){
 				$info[$key]['backup_quota'] = (int) $quota['used'];
 				$info[$key]['allocated_storage'] = (int) $quota['total'];
+			}
+		}else{
+
+			foreach($info as $key => $locs){
+				if($locs['protocol'] === $storage_loc){
+					$info[$key]['backup_quota'] = (int) $quota['used'];
+					$info[$key]['allocated_storage'] = (int) $quota['total'];
+				}
 			}
 		}
 		
@@ -1232,4 +1249,136 @@ function backuply_close_trial_promo(){
 	
 	update_option('backuply_hide_trial', (0 - time()), false);
 	die('DONE');
+}
+
+function backuply_do_diagnosis(){
+
+	// Verify nonce
+	backuply_ajax_nonce_verify();
+	
+	$test_url = BACKUPLY_URL . '/backup_ins.php';
+
+	// Make the request with timeout
+	$response = wp_remote_get($test_url, array(
+		'timeout' => 15,
+		'sslverify' => false,
+	));
+	
+	//backuply_log(var_export($response, true));
+
+	// Check if request failed completely (couldn't reach server at all)
+	if(is_wp_error($response)){
+		
+		$error_msg = $response->get_error_message();
+        
+		// This means request didn't reach backuply_ins.php - Cloudflare/Firewall blocking
+		wp_send_json_error(array(
+			'message' => 'Cloudflare or Firewall blocking detected: Request could not reach the server.',
+			'technical' => $error_msg,
+			'reached_ins' => false,
+			'suggestion' => 'Please whitelist your server IP in Cloudflare or disable proxy temporarily to test.'
+		));
+	}
+
+	$response_code = wp_remote_retrieve_response_code($response);
+	$body = wp_remote_retrieve_body($response);
+	$headers = wp_remote_retrieve_headers($response);
+	$is_cloudflare = false;
+	
+	if(!empty($headers['cf-ray'])){
+		$is_cloudflare = true;
+	}
+
+	// Check HTTP response code
+	if($response_code >= 500){
+		backuply_log(var_export($response, true));
+
+		wp_send_json_error(array(
+			'message' => sprintf(__('Server error (%d) when checking Cloudflare status.', 'backuply'), (int) $response_code),
+			'is_cloudflare' => $is_cloudflare
+		));
+	}
+
+	if($response_code == 403){
+		backuply_log(var_export($response, true));
+
+		wp_send_json_error(array(
+			'message' => __('Cloudflare/Firewall blocking detected: Received 403 Forbidden.', 'backuply'),
+			'is_cloudflare' => $is_cloudflare
+		));
+	}
+
+	if(empty($response_code) || empty($body)){
+		backuply_log(var_export($response, true));
+
+		wp_send_json_error(array(
+			'message' => __('Diagnosis Failed: No response received', 'backuply'),
+			'suggestion' => __('The request was blocked by a firewall or security layer before reaching your site. Please check your Cloudflare WAF (Web Application Firewall) rules, security plugins, or server-side firewall to whitelist the action.', 'backuply'),
+			'is_cloudflare' => $is_cloudflare
+		));
+	}
+
+	// If we got 'true' response, backuply_ins.php was reached successfully
+	if(trim($body) === 'HACKING ATTEMPT!'){
+		wp_send_json_success(array(
+			'message' => __('Diagnosis Passed: Connection verified successfully. Backup requests are not getting blocked by any firewall.', 'backuply'),
+			'is_cloudflare' => $is_cloudflare
+		));
+	}
+
+	// Any other response means something is interfering
+	backuply_log(var_export($response, true));
+
+	wp_send_json_error(array(
+		'message' => __('Diagnosis Failed: Unexpected response from server. Possible interference detected.', 'backuply'),
+		'is_cloudflare' => $is_cloudflare
+	));
+}
+
+function backuply_load_debug(){
+	
+	// Verify nonce
+	backuply_ajax_nonce_verify();
+	
+	$backup_info = backuply_glob('backups_info');
+	
+	$debug_file = $backup_info .'/debug.php';
+	
+	if(!file_exists($debug_file)){
+		wp_send_json_error(__('No debug file found, please enable debug mode from Backuply settings if you have not', 'backuply'));
+	}
+	
+	$file_size = filesize($debug_file);
+	$max_read_size = KB_IN_BYTES*20;
+	
+	$fh = fopen($debug_file, 'rb');
+	
+	if(empty($fh) || !is_resource($fh)){
+		wp_send_json_error(__('Unable to open the debug file', 'backuply'));
+	}
+	
+	if($file_size > $max_read_size){
+		$seek_point = $file_size - $max_read_size;
+		
+		fseek($fh, $seek_point);
+		
+		$contents = fread($fh, $max_read_size);
+		$next_line_break = strpos($contents, "\n");
+		
+		// If no break was found then we will not have a offset
+		if($next_line_break === false){
+			$next_line_break = 0;
+		}
+
+		$contents = substr($contents, $next_line_break, strlen($contents));
+	} else {
+		fseek($fh, 16);
+		$contents = fread($fh, $max_read_size);
+	}
+	
+	if(empty($contents)){
+		wp_send_json_error(__('Unable to read the debug file', 'backuply'));
+	}
+	
+	wp_send_json_success(esc_html($contents));
 }

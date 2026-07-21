@@ -4,7 +4,7 @@ Tags: backup, restore, database backup, cloud backup, wordpress backup, migratio
 Requires at least: 4.7
 Tested up to: 7.0
 Requires PHP: 5.5
-Stable tag: 1.5.3
+Stable tag: 1.5.4
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -84,6 +84,13 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.5.4 (21st July 2026) =
+* [Feature Pro] Option to trigger Backup when updating WordPress Core.
+* [Improvement] Added Self Diagnosis, help knowing if some firewall is blocking Backuply's requests, and quick access to Backuply debug logs.
+* [Bug-Fix] There was an issue with the quota updating, if 2 locations of same Cloud location type were added.
+* [Bug-Fix] Minor UI fixes caused because of incompatibility with the new WordPress 7.0.
+* [Task] backup-migration and backup folders inside wp-content won't be backed up.
 
 = 1.5.3 (27th May 2026) =
 * [Improvement] Added option to use custom Backup rotation.

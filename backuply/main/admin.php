@@ -14,6 +14,8 @@ function backuply_admin_init(){
 		add_filter('upload_mimes', 'backuply_add_mime_types'); // In case tar or gz are not supported
 		add_action('admin_post_backuply_download_backup', 'backuply_direct_download_file');
 
+		add_action('admin_enqueue_scripts', 'backuply_enqueue');
+
 		// === Trial Promo ===
 		$trial_time = get_option('backuply_hide_trial', 0);
 		
@@ -322,4 +324,122 @@ function backuply_update_notice_filter($plugins = []){
 	$plugins['backuply/backuply.php'] = 'Backuply';
 	
 	return $plugins;
+}
+
+// Enqueue All Files
+function backuply_enqueue($hook){
+	global $backuply;
+
+	if(($hook !== 'update-core.php' || empty($backuply['settings']['pre_update_backup'])) && strpos($hook, 'backuply') === false){
+		return;
+	}
+	
+	$localize = false;
+
+	if($hook === 'update-core.php'){
+		if(defined('BACKUPLY_PRO')){
+			wp_enqueue_style('backuply-styles', BACKUPLY_URL . '/assets/css/styles.css', array(), BACKUPLY_VERSION);
+			wp_enqueue_style('backuply-jquery-ui', BACKUPLY_URL . '/assets/css/base-jquery-ui.css', array(), BACKUPLY_VERSION);
+			
+			wp_enqueue_script('backuply-js', BACKUPLY_URL . '/assets/js/backuply.js', array('jquery-ui-dialog'), BACKUPLY_VERSION, true);
+			
+			$localize = true;
+		}
+	} else {
+		wp_enqueue_style('backuply-styles', BACKUPLY_URL . '/assets/css/styles.css', array(), BACKUPLY_VERSION);
+    
+		// TODO:: Is only being used for a modal so create custom modal.
+		wp_enqueue_style('backuply-jquery-ui', BACKUPLY_URL . '/assets/css/base-jquery-ui.css', array(), BACKUPLY_VERSION);
+		wp_enqueue_style('backuply-jstree', BACKUPLY_URL . '/assets/css/jstree.css', array(), BACKUPLY_VERSION);
+    
+		wp_enqueue_script('backuply-js', BACKUPLY_URL . '/assets/js/backuply.js', array('jquery-ui-dialog'), BACKUPLY_VERSION, true);
+		wp_enqueue_script('backuply-jstree', BACKUPLY_URL . '/assets/js/jstree.min.js', array('jquery'), BACKUPLY_VERSION, true);
+		
+		$localize = true;
+	}
+
+	if(!empty($localize)){
+		$pre_update_enabled = !empty($backuply['settings']['pre_update_backup']) ? 1 : 0;
+
+		wp_localize_script('backuply-js', 'backuply_obj', array(
+			'nonce' => wp_create_nonce('backuply_nonce'),
+			'ajax_url' => admin_url('admin-ajax.php'),
+			'cron_task' => get_option('backuply_cron_settings'),
+			'images' => BACKUPLY_URL . '/assets/images/',
+			'backuply_url' => BACKUPLY_URL,
+			'creating_session' => wp_generate_password(32, false),
+			'status_key' => urlencode(backuply_get_status_key()),
+			'site_url' => site_url(),
+			'pre_update_enabled' => $pre_update_enabled,
+		));
+	}
+}
+
+function backuply_modal_progress($is_restoring = false){
+	global $backuply;
+
+	$backuply_remote_backup_locs = get_option('backuply_remote_backup_locs', array());
+
+	?>
+	<div class="backuply-modal" id="backuply-backup-progress" <?php echo $is_restoring ? '' : 'style="display:none;"';?> data-process="<?php echo $is_restoring ? 'restore' : 'backup';?>">
+		<div class="backuply-modal__inner">
+			<div class="backuply-modal__header">
+				<div class="backuply-modal-header__title">
+					<?php 
+					$active_proto = 'local';
+					$active_name = 'Local';
+
+					if(isset($backuply['status']['backup_location']) && !empty($backuply_remote_backup_locs[$backuply['status']['backup_location']]['protocol'])){
+						$active_proto = $backuply_remote_backup_locs[$backuply['status']['backup_location']]['protocol'];
+						$active_name = $backuply_remote_backup_locs[$backuply['status']['backup_location']]['name'];
+					}
+					//If status doesn't have location, check settings (for pre-update backups)
+					elseif(!empty($backuply['settings']['backup_location']) && !empty($backuply_remote_backup_locs[$backuply['settings']['backup_location']]['protocol'])){
+						$active_proto = $backuply_remote_backup_locs[$backuply['settings']['backup_location']]['protocol'];
+						$active_name = $backuply_remote_backup_locs[$backuply['settings']['backup_location']]['name'];
+					}
+
+					if($is_restoring){
+						$restro_info = backuply_get_restoration_data();
+
+						if(!empty($restro_info)){
+							$active_proto = $restro_info['protocol'];
+							$active_name = $restro_info['name'];
+						}
+					}
+
+					echo '<img src="'.BACKUPLY_URL . '/assets/images/'.esc_attr($active_proto).'.svg'.'" height="26" width="26" title="'.esc_attr($active_name).'" class="backuply-modal-bak-icon"/>';
+
+					?>
+					<span class="backuply-title-text">
+						<span class="backuply-title-backup"><?php esc_html_e('Backup in Progress', 'backuply'); ?></span>
+						<span class="backuply-title-restore"><?php esc_html_e('Restore in progress', 'backuply'); ?></span>
+					</span>
+				</div>
+
+				<div class="backuply-modal-header__actions">
+					<?php echo !empty($is_restoring) ? '' : '<span class="dashicons dashicons-no"></span>'; ?>
+				</div>
+			</div>
+			<div class="backuply-modal__content">
+				<p class="backuply-loc-bak-name" align="center"><?php echo esc_html__('Backup Location', 'backuply').':'.esc_html($active_name); ?></p>
+				<p class="backuply-loc-restore-name" style="display:none" align="center">Restoring From: <?php echo esc_attr($active_name); ?></p>
+				<p class="backuply-progress-extra-backup" align="center"><?php esc_html_e('We are backing up your site it may take some time.', 'backuply'); ?></p>
+				<p class="backuply-progress-extra-restore" align="center" style="display:none;"><?php esc_html_e('We are restoring your site it may take some time.', 'backuply'); ?></p>
+				<div class="backuply-progress-bar" ><div class="backuply-progress-value" style="width:0%;"  data-done="0%"></div></div>
+				<p id="backuply-rate-on-restore" align="center" style="display:none;"><a href="https://wordpress.org/support/plugin/backuply/reviews/?filter=5#new-post" target="_blank"><?php esc_html_e('Rate Us if you find Backuply useful', 'backuply'); ?></a></p>
+				<div class="backuply-backup-status"></div>
+			</div>
+			<div class="backuply-modal_footer">
+				<div>
+					<button class="button-secondary" id="backuply-kill-process-btn"><?php esc_html_e('Kill Process', 'backuply'); ?></button>
+				</div>
+				<div>
+					<button class="backuply-btn backuply-btn--danger backuply-stop-backup"><?php esc_html_e('Stop', 'backuply'); ?></button>
+					<button class="backuply-btn backuply-btn--success backuply-disabled backuply-backup-finish" disabled><?php esc_html_e('Finish', 'backuply'); ?></button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<?php
 }

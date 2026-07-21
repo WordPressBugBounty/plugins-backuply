@@ -447,10 +447,20 @@ function backuply_get_status($last_log = 0){
 	
 	$fh = fopen($log_file, 'r');
 	
+	if(empty($fh)){
+		return $logs;
+	}
+	
 	$seek_to = $last_log;
 	@fseek($fh, $seek_to);
 	
-	$lines = fread($fh, fstat($fh)['size']);
+	$stats = fstat($fh);
+	
+	if(empty($stats) || !is_array($stats) || empty($stats['size'])){
+		return $logs;
+	}
+	
+	$lines = fread($fh, $stats['size']);
 	fclose($fh);
 	$fh = null;
 	return $lines;
@@ -1295,7 +1305,7 @@ function backuply_sync_remote_backup_infos($location_id){
 		$info['backup_location'] = $location_id;
 		//backuply_print($info);
 		
-		$v = str_replace('.info', '.php', $v);
+		$v = preg_replace('/.info$/', '.php', $v);
 		
 		// Write the file
 		file_put_contents(backuply_glob('backups_info') .'/'.$v, "<?php exit();?>\n".json_encode($info, JSON_PRETTY_PRINT));
@@ -1760,14 +1770,26 @@ function backuply_get_status_key(){
 	return $content;
 }
 
-function backuply_get_quota($protocol){
+function backuply_get_quota($storage_id){
+	
+	// everything other than bcloud, we will get an ID.
+	if(!is_numeric($storage_id)){
+		$info = backuply_load_remote_backup_info($storage_id);
+	} else {
+		$info = backuply_get_loc_by_id($storage_id);	
+	}
+
+	if(empty($info) || empty($info['protocol'])){
+	    return false;
+	}
+
+	$protocol = $info['protocol'];
 
 	backuply_stream_wrapper_register($protocol, $protocol);
 	
 	if(class_exists($protocol) && method_exists($protocol, 'get_quota')){
 		$class = new $protocol();
 		
-		$info = backuply_load_remote_backup_info($protocol);
 		$quota = $class->get_quota($info['full_backup_loc']);
 
 		if(empty($quota)){
@@ -1898,6 +1920,9 @@ function backuply_add_mime_types($mimes) {
 }
 
 function backuply_sanitize_filename($filename){
+	// other plugins can interfere in this function and break out functionality
+	remove_all_filters('sanitize_file_name');
+	
 	$filename = sanitize_file_name($filename);
 	// We need to remove "_" as sanitize_file_name adds it if the file 
 	// have more than 2 extensions, which in our case happens sometimes, if the 
