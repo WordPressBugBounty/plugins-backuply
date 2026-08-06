@@ -4,7 +4,7 @@ Tags: backup, restore, database backup, cloud backup, wordpress backup, migratio
 Requires at least: 4.7
 Tested up to: 7.0
 Requires PHP: 5.5
-Stable tag: 1.5.4
+Stable tag: 1.5.5
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -84,6 +84,12 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.5.5 =
+* [Feature Pro] pCloud Backup location support added.
+* [Improvement] noabort rule for LiteSpeed cache was added earlier if litespeed PHP extension was present, now it adds based on PHP SAPI or SERVER_SOFTWARE.
+* [Improvement] Option to scan and add LiteSpeed noabort rule added to Backuply support tab.
+* [Bug-Fix] There was a Google Drive access token cache issue, that has been fixed.
 
 = 1.5.4 (21st July 2026) =
 * [Feature Pro] Option to trigger Backup when updating WordPress Core.
