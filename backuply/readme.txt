@@ -4,7 +4,7 @@ Tags: backup, restore, database backup, cloud backup, wordpress backup, migratio
 Requires at least: 4.7
 Tested up to: 7.1
 Requires PHP: 5.5
-Stable tag: 1.5.8
+Stable tag: 1.5.9
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -85,6 +85,12 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.5.9 (1st October 2026) =
+* [Security Fix] Fixed an issue related to the restoration process, reported by **daroo** [Wordfence].
+* [Bug-Fix] Cookie values with special characters like ";" were forwarded decoded in loopback requests, splitting them into invalid cookies which firewalls could block. This has been fixed.
+* [Bug-Fix] Check for an already running backup was not working, so a second backup could be started and the Stop Backup button stayed disabled. This has been fixed.
+* [Bug-Fix] Backups list was sorted by the site name in the backup file name instead of the backup time, showing backups out of order. This has been fixed.
 
 = 1.5.8 (23rd September 2026) =
 * [Improvement Pro] Added Code Signing: Every update now verifies the code signature to ensure secure updates.

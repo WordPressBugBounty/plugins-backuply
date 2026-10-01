@@ -1606,14 +1606,10 @@ function backuply_backup_curl($action) {
 		'blocking' => false,
 		'sslverify' => false,
 		'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-		'headers' => [
+		'headers' => backuply_cookie_header([
 			'Cache-Control' => 'max-age=0, no-cache',
-		]
+		])
 	);
-
-	if(!empty($_COOKIE)){
-		$args['cookies'] = $_COOKIE;
-	}
 
 	wp_remote_get($url, $args);
 	

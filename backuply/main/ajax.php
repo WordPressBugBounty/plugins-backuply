@@ -150,6 +150,7 @@ function backuply_create_backup() {
 	backuply_create_log_file();
 	
 	update_option('backuply_backup_stopped', false);
+	$bak_options['last_update'] = time(); // Marks it active until the first loop takes over
 	update_option('backuply_status', $bak_options);
 	backuply_status_log('Initializing...', 'info', 13);
 	backuply_status_log('Creating a job to start Backup', 'info', 17);
@@ -170,7 +171,7 @@ function backuply_backup_request(){
 	$res = wp_remote_get($url, array(
 		'timeout' => 0.01,
 		'blocking' => false,
-		'cookies' => $_COOKIE,
+		'headers' => backuply_cookie_header(),
 		'sslverify' => false,
 		'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
 	));

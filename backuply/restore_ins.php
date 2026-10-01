@@ -2243,8 +2243,9 @@ function backuply_import($import_file, $conn){
 					if(strpos($sql, 'SET CHARACTER_SET_CLIENT') === FALSE && strpos($sql, 'SET COLLATION_CONNECTION') === FALSE){
 						$res = backuply_mysql_query($sql, $conn);
 						
-						// Find Prefix in create tables
-						if(preg_match('/CREATE\s+TABLE\s+[.]*[`]*(.*)options[`]*\s*\(/is', $sql, $prefix)){
+						// Find Prefix in create tables, only from an actual CREATE TABLE statement (leading dump comments allowed)
+						// and only identifier chars, as user data inside INSERTs can contain "CREATE TABLE ... options ("
+						if(preg_match('/^(?:\s*(?:--[^\n]*|#[^\n]*|\/\*.*?\*\/))*\s*CREATE\s+TABLE\s+`?([A-Za-z0-9_]+)options`?\s*\(/is', $sql, $prefix)){
 							if(!empty($prefix[1])){
 								$wp_old_prefix = $prefix[1];
 							}
@@ -2252,7 +2253,7 @@ function backuply_import($import_file, $conn){
 						
 						// If backuply_version found, then execute
 						if(!empty($wp_old_prefix) && preg_match('/backuply_version/is', $sql)){
-							$bacuply_version_query = "UPDATE ".$wp_old_prefix."options SET `option_value`='".$GLOBALS['backuply_version']."' WHERE `option_name`='backuply_version';";
+							$bacuply_version_query = "UPDATE ".$wp_old_prefix."options SET `option_value`='".preg_replace('/[^0-9A-Za-z.\-]/', '', $GLOBALS['backuply_version'])."' WHERE `option_name`='backuply_version';";
 							backuply_mysql_query($bacuply_version_query, $conn);
 
 							//backuply_log($bacuply_version_query);

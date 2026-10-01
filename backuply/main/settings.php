@@ -1344,6 +1344,7 @@ if(file_exists(BACKUPLY_BACKUP_DIR . 'restoration/restoration.php')){
 								<li><img class="backuply-grayscale" src="<?php echo BACKUPLY_URL . '/assets/images/digitalocean.svg'?>" height="64" width="64" alt="DigitalOcean Logo" title="DigitalOcean Spaces"/></li><li><img class="backuply-grayscale" src="<?php echo BACKUPLY_URL . '/assets/images/cloudflare.svg'?>" height="64" width="64" alt="Cloudflare Logo" title="Cloudflare R2"/></li>
 								<li><img class="backuply-grayscale" src="<?php echo BACKUPLY_URL . '/assets/images/vultr.svg'?>" height="64" width="64" alt="Vultr Logo" title="Vultr Object Storage"/></li>
 								<li><img class="backuply-grayscale" src="<?php echo BACKUPLY_URL . '/assets/images/linode.svg'?>" height="64" width="64" alt="Linode Logo" title="Linode Object Storage"/></li>
+								<li><img class="backuply-grayscale" src="<?php echo BACKUPLY_URL . '/assets/images/pcloud.svg'?>" height="64" width="64" alt="pCloud Logo" title="pCloud"/></li>
 							</ul>
 						</div>
 					<?php } ?>

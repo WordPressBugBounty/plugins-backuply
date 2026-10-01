@@ -10,7 +10,7 @@ if(!function_exists('add_action')){
 	exit;
 }
 
-define('BACKUPLY_VERSION', '1.5.8');
+define('BACKUPLY_VERSION', '1.5.9');
 define('BACKUPLY_DIR', dirname(BACKUPLY_FILE));
 define('BACKUPLY_URL', plugins_url('', BACKUPLY_FILE));
 define('BACKUPLY_BACKUP_DIR', str_replace('\\' , '/', WP_CONTENT_DIR).'/backuply/');
@@ -86,6 +86,16 @@ function backuply_load_plugin(){
 	// Set the array
 	if(empty($backuply)){
 		$backuply = array();
+	}
+	
+	// There was an issue were for some users update was stuck, and free was able to get updated through auto updater option
+	// removing these filters fixes that issue, and our Pro update blocker was improved in 1.5.9
+	// This check can be removed 1 year from 01.10.2026
+	if(defined('BACKUPLY_PRO_VERSION') && version_compare(BACKUPLY_PRO_VERSION, '1.5.9', '<') && version_compare(BACKUPLY_PRO_VERSION, '1.5.4', '>=')){
+		foreach(['site_transient_update_plugins', 'pre_site_transient_update_plugins'] as $hook){
+			remove_filter($hook, 'backuply_pro_disable_manual_update_for_plugin'); // Older Pro used the default priority
+			remove_filter($hook, 'backuply_pro_disable_manual_update_for_plugin', 99);
+		}
 	}
 
 	$backuply['settings'] = get_option('backuply_settings', []);

@@ -200,12 +200,12 @@ function backuply_active(){
 	$backuply['status'] = get_option('backuply_status');
 	
 	// Nothing there
-	if(empty($backuply['status']['last_time'])){
+	if(empty($backuply['status']['last_update'])){
 		return false;
 	}
 	
 	// No updates since 5 min
-	if((time() - BACKUPLY_TIMEOUT_TIME) > $backuply['status']['last_time']){
+	if((time() - BACKUPLY_TIMEOUT_TIME) > $backuply['status']['last_update']){
 		return false;
 	}
 	
@@ -873,8 +873,15 @@ function backuply_get_backups_info_data($offset = 0, $limit = -1){
 	
 	$info_files = array_diff($info_files, ['.', '..', 'index.php', 'index.html', 'debug.php']);
 
-	// Sorting the files based on the time in the file name.
-	rsort($info_files, SORT_STRING);
+	// Sorting the files based on the time in the file name, newest first.
+	// Names are wp_{SERVER_NAME}_Y-m-d_H-i-s, so sorting the whole name would group by
+	// host first (www vs non-www, migrated or synced backups) instead of by time.
+	usort($info_files, function($a, $b){
+		$time_a = preg_match('/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.php$/', $a, $m) ? $m[1] : '';
+		$time_b = preg_match('/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.php$/', $b, $m) ? $m[1] : '';
+
+		return strcmp($time_b, $time_a) ?: strcmp($b, $a);
+	});
 
 	foreach($info_files as $files){
 		
@@ -1726,14 +1733,27 @@ function backuply_restore_curl($info = array()) {
 		'timeout' => 0.01,
 		'blocking' => false,
 		'sslverify' => false,
-		'cookies' => $_COOKIE,
-		'headers' => [
+		'headers' => backuply_cookie_header([
 			'Referer' => (!empty($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'http') .'://'. $_SERVER['SERVER_NAME'],
-		],
+		]),
 		'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
 	);
 
 	wp_remote_post($info['restore_curl_url'], $args);
+}
+
+// Forwards the browser's Cookie header as-is for self calls.
+// Passing $_COOKIE as 'cookies' re-sends PHP's url-decoded values unencoded,
+// so values like %3B or %2C break the header and firewalls drop the request.
+// It must be unslashed too: WP magic-quotes $_COOKIE and $_SERVER, so forwarding the slashed
+// value doubles the backslashes on every loop until the header hits the 8KB limit (400).
+// All cookies are kept on purpose: some firewalls need their own cookies to let the self call through.
+function backuply_cookie_header($headers = array()){
+	if(!empty($_SERVER['HTTP_COOKIE'])){
+		$headers['Cookie'] = wp_unslash($_SERVER['HTTP_COOKIE']);
+	}
+
+	return $headers;
 }
 
 // Shifts the Config keys from file to db for user below 1.2.0.
