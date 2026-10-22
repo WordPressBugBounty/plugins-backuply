@@ -1434,8 +1434,13 @@ function backuply_restorequery(form_id){
 
 function backuply_heartbeat(){
 	jQuery.ajax({
-		method : 'GET',
-		url : backuply_obj.ajax_url + '?action=backuply_creating_session&security='+backuply_obj.restore_key+'&sess_key='+backuply_obj.creating_session,
+		method : 'POST',
+		url : backuply_obj.ajax_url,
+		data : {
+			action : 'backuply_creating_session',
+			security : backuply_obj.restore_key,
+			sess_key : backuply_obj.creating_session
+		},
 		success : function(res){
 			if(res.success == true){
 				return;

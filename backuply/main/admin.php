@@ -230,7 +230,7 @@ function backuply_backup_nag(){
 function backuply_admin_menu(){
 	global $backuply;
 
-	$capability = 'activate_plugins';
+	$capability = 'manage_options';
 	
 	// Add the menu page
 	add_menu_page(__('Backuply Dashboard', 'backuply'), __('Backuply', 'backuply'), $capability, 'backuply', 'backuply_settings_page_handle', BACKUPLY_URL .'/assets/images/icon.svg');

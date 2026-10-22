@@ -263,8 +263,8 @@ class gdrive{
 			fclose($this->wp);
 			$this->wp = NULL;
 			
+			// upload_append() has already set the error
 			if(empty($retcode)){
-				$error[] = 'Google Drive : '.$retcode;
 				return false;
 			}
 			
@@ -302,15 +302,19 @@ class gdrive{
 		
 		$op = explode("\r\n", $resp['result']);
 
-		backuply_preg_replace('/HTTP\/1.1(\s*?)(.*?)$/is', $op[2], $retcode, 2);
-		//echo '<br />Append Ret Code: '.$retcode;
-
-		if($retcode != '308 Resume Incomplete' && $retcode != '200 OK' && $retcode != '201 Created' && $retcode != '503 Service Unavailable'){
-		    backuply_preg_replace('/HTTP\/1.1(\s*?)(.*?)$/is', $op[0], $retcode, 2);
+		// The response can start with "HTTP/1.1 100 Continue", so the real status is the last status line
+		$retcode = '';
+		foreach($op as $ov){
+			backuply_preg_replace('/^HTTP\/1.1(\s*?)(.*?)$/is', $ov, $retcode, 2);
 		}
 
-		if($retcode != '308 Resume Incomplete' && $retcode != '200 OK' && $retcode != '201 Created' && $retcode != '503 Service Unavailable'){
-			$error[] = 'Google Drive : '.$retcode;
+		// Google asks to retry on 429 and 500, 502, 503, 504
+		$retryable = preg_match('/^(429|50[0234])\b/', $retcode);
+
+		if($retcode != '308 Resume Incomplete' && $retcode != '200 OK' && $retcode != '201 Created' && !$retryable){
+			preg_match('/{(.*?)}$/is', $resp['result'], $matches);
+			$data = !empty($matches[0]) ? json_decode($matches[0], true) : [];
+			$error[] = 'Google Drive : '.$retcode.(!empty($data['error']['message']) ? ' : '.$data['error']['message'] : '');
 			return false;
 		}
 		
@@ -333,7 +337,7 @@ class gdrive{
 			$this->gdrive_fileid = $data['id'];
 		}
 		
-		if($retcode ==  '503 Service Unavailable'){
+		if($retryable){
 			$retcode = $this->retry_upload();
 		}
 
@@ -373,9 +377,9 @@ class gdrive{
 
 		backuply_preg_replace('/HTTP\/1.1(\s*?)(.*?)$/is', $op[0], $retcode, 2);
 		
-		// Retry if it gets same error of service unavailable.
-		if($retcode == '503 Service Unavailable'){
-			$this->retry_upload();
+		// Retry if Google is still unavailable.
+		if(preg_match('/^(429|50[0234])\b/', $retcode)){
+			return $this->retry_upload();
 		}
 		
 		// If is 2xx then the file is been uploaded successfully
@@ -1041,8 +1045,12 @@ class gdrive{
 		/* echo '<br />Resp: ';
 		$errno = curl_errno($ch);
 		var_dump(curl_getinfo($ch, CURLINFO_HTTP_CODE)); */
-		
-		curl_close($ch);
+
+		// curl_close() has no effect since PHP 8.0 and is deprecated in 8.5
+		if(PHP_VERSION_ID < 80000){
+			curl_close($ch);
+		}
+
 		return $resp;
 	}
 	

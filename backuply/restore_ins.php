@@ -163,13 +163,19 @@ function backuply_verify_self() {
 		return false;
 	}
 
+	// Only while a restore is running, see backuply_restore_active(). 300 = BACKUPLY_TIMEOUT_TIME, WP is not loaded here.
+	$restoration_file = dirname(__FILE__, 3).'/backuply/restoration/restoration.php';
+	if(!file_exists($restoration_file) || (time() - filemtime($restoration_file)) >= 300){
+		return false;
+	}
+
 	$config = backuply_get_config();
 
 	if(!$config) {
 		return false;
 	}
 
-	if(urldecode($_REQUEST['restore_key']) == $config['RESTORE_KEY']) {
+	if(!empty($config['RESTORE_KEY']) && is_string($_REQUEST['restore_key']) && hash_equals((string) $config['RESTORE_KEY'], urldecode($_REQUEST['restore_key']))) {
 		return true;
 	}
 	
@@ -2900,21 +2906,29 @@ function final_restore_response($output, $error_str = '') {
 		return;
 	}
 
-	$url .= '?action=backuply_restore_response&security='. $config['RESTORE_KEY'].'&user_id='.$output['user_id']. '&sess_key='.$output['sess_key'];
+	// Sent as POST so the restore key never lands in access logs.
+	$post = array(
+		'action' => 'backuply_restore_response',
+		'security' => $config['RESTORE_KEY'],
+		'user_id' => $output['user_id'],
+		'sess_key' => $output['sess_key'],
+	);
+
 	if(!empty($output['restore_db'])){
-		$url .= '&restore_db=true';
+		$post['restore_db'] = 'true';
 	}
 	
 	if(!empty($output['is_migrating'])){
-		$url .= '&is_migrating=true';
+		$post['is_migrating'] = 'true';
 	}
 	
 	if(!empty($output['not_writable'])){
-		$url .= '&not_writable=true';
+		$post['not_writable'] = 'true';
 	}
 
 	if(!empty($error_str)) {
-		$url .= '&error=1&error_string=' . urlencode($error_str);
+		$post['error'] = 1;
+		$post['error_string'] = urlencode($error_str); // The handler urldecode()s it
 	}
 	
 	$curl = new Curl();
@@ -2923,6 +2937,7 @@ function final_restore_response($output, $error_str = '') {
 	$curl->setTimeout(5);
 	$curl->setOpt(CURLOPT_SSL_VERIFYPEER, FALSE);
 	$curl->setOpt(CURLOPT_SSL_VERIFYHOST, FALSE);
+	$curl->setReferer((!empty($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'http') .'://'. $_SERVER['SERVER_NAME']); // WAFs block wp-admin POSTs without one
 	$curl->setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36');
 
 	// Right after a restore the DB can still be unreachable (slow IO), WordPress then answers
@@ -2932,7 +2947,7 @@ function final_restore_response($output, $error_str = '') {
 		@set_time_limit(60); // Re-arm, so the retries can never be what times us out
 		sleep(5);
 
-		$curl->get($url);
+		$curl->post($url, $post);
 
 		if($curl->httpStatusCode < 500){
 			break;

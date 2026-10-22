@@ -2171,7 +2171,10 @@ class S3
 				$type = explode(';', $type);
 				$type = trim(array_shift($type));
 			}
-			finfo_close($finfo);
+			// finfo_close() has no effect since PHP 8.1 and is deprecated in 8.5
+			if(PHP_VERSION_ID < 80100){
+				finfo_close($finfo);
+			}
 			if ($type !== false && strlen($type) > 0) return $type;
 		}
 
@@ -2716,8 +2719,11 @@ final class S3Request
 				'message' => curl_error($curl),
 				'resource' => $this->resource
 			);
-		
-		@curl_close($curl);
+
+		// curl_close() has no effect since PHP 8.0 and is deprecated in 8.5
+		if(PHP_VERSION_ID < 80000){
+			curl_close($curl);
+		}
 
 		// Parse body into XML
 		if ($this->response->error === false && isset($this->response->headers['type']) &&

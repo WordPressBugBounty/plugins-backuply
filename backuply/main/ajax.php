@@ -66,7 +66,7 @@ function backuply_ajax_nonce_verify($key = 'security'){
 	}
 	
 	// Check capability
-	if(!current_user_can( 'activate_plugins' )){
+	if(!current_user_can( 'manage_options' )){
 		wp_send_json(array('success' => false, 'message' => 'You cannot create backups as per your capabilities !'));
 	}
 	
@@ -203,7 +203,7 @@ function backuply_handle_backup_request(){
 	}
 
 	// Check capability
-	if(!current_user_can( 'activate_plugins' )){
+	if(!current_user_can( 'manage_options' )){
 		backuply_status_log('You cannot create backups as per your capabilities !', 'error', 100);
 		return false;
 	}
@@ -386,9 +386,9 @@ function backuply_restore_response($is_last = false) {
 	$backuply_backup_dir = backuply_cleanpath(BACKUPLY_BACKUP_DIR);
 	
 	// Was there an error ?
-	if(backuply_optget('error')){
+	if(backuply_optreq('error')){
 	
-		$error_string = urldecode(backuply_optget('error_string'));
+		$error_string = urldecode(backuply_optreq('error_string'));
 		// Send mail
 		$mail = array();
 		$mail['to'] = $email;   
@@ -407,7 +407,7 @@ Backuply';
 		if(!empty($mail['to'])){
 			wp_mail($mail['to'], $mail['subject'], $mail['message'], $mail['headers']);
 		}
-		backuply_report_error(backuply_optget('error_string'));
+		backuply_report_error(backuply_optreq('error_string'));
 		
 		backuply_status_log('Restore Failed!.','error');
 		backuply_copy_log_file(true);
@@ -437,7 +437,7 @@ Backuply';
 		wp_mail($mail['to'], $mail['subject'], $mail['message'], $mail['headers']);
 	}
 	
-	if(!empty($_GET['not_writable'])){
+	if(!empty($_REQUEST['not_writable'])){
 		backuply_status_log(__('Please check the logs, there were some files, which Backuply was unable to replace as those files were not writable', 'backuply') . ' <a href="https://backuply.com/docs/common-issues/files-not-writable/" target="_blank">Read More</a>', 'info');
 	}
 
@@ -491,7 +491,7 @@ function backuply_update_serialization($keepalive, $options = array(), $i = null
 		die();
 	}
 	
-	$body = array('options' => $options);
+	$body = array('options' => $options, 'security' => $config['RESTORE_KEY']);
 	
 	if(is_numeric($res)){
 		
@@ -510,15 +510,17 @@ function backuply_update_serialization($keepalive, $options = array(), $i = null
 		$body['i'] = $res;
 	}
 	
-	$url = admin_url('admin-ajax.php'). '?action=backuply_update_serialization&security='. $config['RESTORE_KEY'];
+	$url = admin_url('admin-ajax.php'). '?action=backuply_update_serialization';
 	
 	wp_remote_post($url, array(
 		'body' => $body,
 		'timeout' => 2,
 		'sslverify' => false,
+		// Referer only: WAFs block wp-admin POSTs without one, and a forwarded login cookie would skip this nopriv hook.
+		'headers' => array('Referer' => admin_url()),
 		'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
 	));
-	
+
 	die();
 }
 
@@ -551,7 +553,7 @@ function backuply_get_restore_key(){
 	
 	if(empty($config_set)){
 		backuply_status_log('Unable to set Config file', 'error', 100);
-		unlink($backuply_backup_dir.'/restoration/restoration.php');
+		@unlink(BACKUPLY_BACKUP_DIR . 'restoration/restoration.php');
 		wp_send_json(array('success' => false, 'message' => 'Unable to create the config file!'));
 	}
 
@@ -583,7 +585,7 @@ function backuply_creating_session(){
 		wp_send_json(array('success' => false, 'error' => true, 'message' => 'Session Key has not been updated yet!'));
 	}
 	
-	if((time() - $key['time']) > 600 || (isset($_REQUEST['sess_key']) && $_REQUEST['sess_key'] != $key['key'])){
+	if((time() - $key['time']) > 600 || empty($key['key']) || empty($_REQUEST['sess_key']) || !is_string($_REQUEST['sess_key']) || !hash_equals((string) $key['key'], $_REQUEST['sess_key'])){
 		//backuply_status_log('Session key verification failed', 'error');
 		die();
 	}
@@ -616,6 +618,9 @@ function backuply_creating_session(){
 		wp_set_auth_cookie($user->ID, 1, is_ssl());
 		do_action('wp_login', $user->user_login, $user);
 		update_user_caches($user);
+
+		// One login per restore, the key must not be replayable.
+		delete_option('backuply_restore_session_key');
 
 		wp_send_json(array('success' => true));
 	}
@@ -748,7 +753,10 @@ function backuply_get_jstree() {
 	}
 	
 	// Making sure we only show files inside WP Content Dir.
-	if(strpos($scan_path, backuply_cleanpath(WP_CONTENT_DIR)) !== 0){
+	// realpath() resolves symlinks and "..", and the trailing separator stops "wp-content-old" matching "wp-content".
+	$real_scan = realpath($scan_path);
+	$real_content = realpath(WP_CONTENT_DIR);
+	if(empty($real_scan) || empty($real_content) || ($real_scan !== $real_content && strpos($real_scan, $real_content . DIRECTORY_SEPARATOR) !== 0)){
 		wp_send_json(array('success' => true, 'nodes' => $nodes));
 	}
 

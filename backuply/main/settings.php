@@ -294,6 +294,7 @@ function backuply_page_backup(){
 			$backuply['settings']['backup_db'] = !empty($_POST['backup_db']) ? 1 : 0;
 			$backuply['settings']['backup_location'] = !empty($_POST['backup_location']) ? backuply_optpost('backup_location') : '';
 			$backuply['settings']['pre_update_backup'] = !empty($_POST['pre_update_backup']) ? 1 : 0;
+			$backuply['settings']['auto_update_backup'] = !empty($_POST['auto_update_backup']) ? 1 : 0;
 			update_option('backuply_settings', $backuply['settings']);
 			
 			if(!empty($error)){
@@ -1601,12 +1602,20 @@ if(file_exists(BACKUPLY_BACKUP_DIR . 'restoration/restoration.php')){
 						<!-- Backup before WordPress updates Checkbox-->
 						<div class="backuply-option-wrap">
 							<label class="backuply-opt-label" for="pre_update_backup">
-								<span class="backuply-opt-label__title"><?php esc_html_e('Backup Before Updates', 'backuply'); ?></span>
+								<span class="backuply-opt-label__title"><?php esc_html_e('Backup Before Manual Updates', 'backuply'); ?></span>
 								<input type="checkbox" name="pre_update_backup" id="pre_update_backup" value="1" <?php checked(!empty($backuply['settings']['pre_update_backup']), true); ?> />
 								<span class="backuply-opt-label__helper"><?php esc_html_e('Create a Backup Before manual WordPress Core Updates', 'backuply'); ?></span>
 							</label>
 						</div>
-						
+
+						<div class="backuply-option-wrap">
+							<label class="backuply-opt-label" for="auto_update_backup">
+								<span class="backuply-opt-label__title"><?php esc_html_e('Backup Before Auto Updates', 'backuply'); ?></span>
+								<input type="checkbox" name="auto_update_backup" id="auto_update_backup" value="1" <?php checked(!empty($backuply['settings']['auto_update_backup']), true); ?> />
+								<span class="backuply-opt-label__helper"><?php esc_html_e('Hold automatic WordPress Core updates until a backup of files and database completes', 'backuply'); ?></span>
+							</label>
+						</div>
+
 						<?php } ?>
 					</div>
 				</div>
@@ -1693,7 +1702,7 @@ if(file_exists(BACKUPLY_BACKUP_DIR . 'restoration/restoration.php')){
 								</div>
 								<div class="form-check">
 									<label class="form-check-label">
-										<input type="checkbox" class="form-check-input" value="1" id="setting_auto_backup_db" name="auto_backup_db" <?php echo(!empty($cron_task['backup_db']) ? 'checked' : '');?>><?php esc_html_e('Backup Database', 'backuply'); ?> 
+										<input type="checkbox" class="form-check-input" value="1" id="setting_auto_backup_db" name="auto_backup_db" <?php echo(!empty($cron_task['backup_db']) ? 'checked' : '');?>><?php esc_html_e('Backup Database', 'backuply'); ?>
 									</label>
 								</div>
 							</div>

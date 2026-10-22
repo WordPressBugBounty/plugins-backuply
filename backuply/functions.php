@@ -223,18 +223,30 @@ function backuply_verify_self($key, $restore_key = false) {
 	$config = backuply_get_config();
 	
 	if(!empty($restore_key)){
-		if(!empty($config['RESTORE_KEY']) && urldecode($key) == $config['RESTORE_KEY']) {
+		if(!backuply_restore_active()){
+			return false;
+		}
+
+		if(!empty($config['RESTORE_KEY']) && is_string($key) && hash_equals((string) $config['RESTORE_KEY'], urldecode($key))) {
 			return true;
 		}
 		
 		return false;
 	}
 
-	if(urldecode($key) == $config['BACKUPLY_KEY']) {
+	if(!empty($config['BACKUPLY_KEY']) && is_string($key) && hash_equals((string) $config['BACKUPLY_KEY'], urldecode($key))) {
 		return true;
 	}
 
 	return false;
+}
+
+// The restore key logs a visitor in as admin, so it is only honoured while a restore is running.
+// restoration.php is touched on every restore loop, untouched for BACKUPLY_TIMEOUT_TIME means it is dead, same as backuply_timeout_check().
+function backuply_restore_active(){
+	$file = BACKUPLY_BACKUP_DIR . 'restoration/restoration.php';
+
+	return file_exists($file) && (time() - filemtime($file)) < BACKUPLY_TIMEOUT_TIME;
 }
 
 // Wp-Cron handle for timeout check i.e. clean dead processes
@@ -1605,15 +1617,15 @@ function backuply_fix_serialize_callback($matches){
 // Note : This will not work for a serialized string in an array key
 function backuply_unserialize($str){
 
-	$var = @unserialize($str);
-	
+	$var = @unserialize($str, array('allowed_classes' => false));
+
 	if(empty($var)){
-		
+
 		// NOTE : Any changes in this pattern will need to be handled in callback function as well
 		$str = preg_replace_callback('/s:(\d+):"(.*?)";(?=([:]|(?<=;)\}(?!\.)|a:|s:|S:|b:|d:|i:|o:|O:|C:|r:|R:|N;))/s', 'backuply_fix_serialize_callback', $str);
-		
-		$var = @unserialize($str);
-	
+
+		$var = @unserialize($str, array('allowed_classes' => false));
+
 	}
 	
 	//If it is still empty false
@@ -1749,6 +1761,11 @@ function backuply_restore_curl($info = array()) {
 // value doubles the backslashes on every loop until the header hits the 8KB limit (400).
 // All cookies are kept on purpose: some firewalls need their own cookies to let the self call through.
 function backuply_cookie_header($headers = array()){
+	// Some WAFs (e.g. Malware.Expert rule 580000) block wp-admin requests without a Referer.
+	if(empty($headers['Referer'])){
+		$headers['Referer'] = admin_url();
+	}
+
 	if(!empty($_SERVER['HTTP_COOKIE'])){
 		$headers['Cookie'] = wp_unslash($_SERVER['HTTP_COOKIE']);
 	}
@@ -2041,7 +2058,7 @@ function backuply_verify_status_log(){
 	
 	$request_key = sanitize_text_field(wp_unslash($_REQUEST['status_key']));
 
-	if(urldecode($request_key) == $status_key) {
+	if(hash_equals((string) $status_key, urldecode($request_key))) {
 		return true;
 	}
 

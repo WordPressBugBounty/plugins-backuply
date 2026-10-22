@@ -4,7 +4,7 @@ Tags: backup, restore, database backup, cloud backup, wordpress backup, migratio
 Requires at least: 4.7
 Tested up to: 7.1
 Requires PHP: 5.5
-Stable tag: 1.5.9
+Stable tag: 1.6.0
 License: LGPL v2.1
 License URI: http://www.gnu.org/licenses/lgpl-2.1.html
 
@@ -85,6 +85,17 @@ Go To your WordPress install -> Plugins -> Add New Button -> In Search Box searc
 7. **Backup Process** easy to understand backup progress.
 
 == Changelog ==
+
+= 1.6.0 (22nd October 2026) =
+* [Feature Pro] Backup Before Auto Updates: Automatic WordPress Core updates now wait until a backup is taken with your Auto Backup settings. If the backup fails, the update is held and retried later.
+* [Improvement Pro] Renamed the "Backup Before Updates" option to "Backup Before Manual Updates" to tell it apart from the new auto update option.
+* [Improvement] Hardened the database restore by restricting unserialization of restored option/meta values to data only (no objects).
+* [Bug-Fix] On some servers loopback request was getting blocked because the request did not had referrer set this has been fixed.
+* [Bug-Fix] If the config file could not be created when starting a restore, a PHP warning was thrown and the restoration file was not cleaned up. This has been fixed.
+* [Bug-Fix] Google Drive upload errors were shown as "100 Continue" instead of the actual error returned by Google Drive, and temporary Google Drive errors failed the backup instead of being retried. This has been fixed.
+* [Bug-Fix] PHP 8.5 was logging deprecation notices for curl_close() and finfo_close(). This has been fixed.
+* [Task Pro] A dependency has been update to it's latest version.
+
 
 = 1.5.9 (1st October 2026) =
 * [Security Fix] Fixed an issue related to the restoration process, reported by **daroo** [Wordfence].

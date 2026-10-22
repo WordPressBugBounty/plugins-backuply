@@ -55,7 +55,7 @@ function _verify_self(){
 		return false;
 	}
 
-	if(urldecode($_REQUEST['status_key']) == $status_key) {
+	if(is_string($_REQUEST['status_key']) && hash_equals((string) $status_key, urldecode($_REQUEST['status_key']))) {
 		return true;
 	}
 

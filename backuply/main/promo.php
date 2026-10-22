@@ -404,6 +404,10 @@ function backuply_promo_scripts(){
 
 function backuply_update_trial_license($license){
 	global $backuply, $error;
+	
+	if(empty($license)){
+		return;
+	}
 
 	$resp = wp_remote_get(BACKUPLY_API.'/license.php?license='.$license.'&url='.rawurlencode(site_url()), array('timeout' => 30));
 	$json = json_decode($resp['body'], true);
